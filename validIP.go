@@ -1,8 +1,13 @@
 package validIP
 
-import "errors"
+var (
+	validDigit = []rune{'1', '2', '3', '4', '5', '6', '7', '8', '9', '0'}
+)
 
-var validDigit = []rune{'1', '2', '3', '4', '5', '6', '7', '8', '9', '0'}
+type ipPart struct {
+	part [3]rune
+	bit  int
+}
 
 func IsDigit(c rune) bool {
 	for _, r := range validDigit {
@@ -13,55 +18,90 @@ func IsDigit(c rune) bool {
 	return false
 }
 
-func getIPPart(ip string) ([4][3]rune, error) {
-	var part [3]rune
-	var whole [4][3]rune
+func IsAllDigit(part [3]rune) bool {
+	for i := 0; i < len(part); i++ {
+		if part[i] == 0 {
+			break
+		}
+		if !IsDigit(part[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func getIPPart(ip string) ([4]*ipPart, int32) {
+	var whole [4]*ipPart
 	var partPointer int
 	var wholePointer int
+	for i := 0; i < 4; i++ {
+		whole[i] = &ipPart{
+			part: [3]rune{},
+			bit:  0,
+		}
+	}
+
 	for _, r := range ip {
+		if !IsDigit(r) && r != '.' {
+			return whole, 0
+		}
 		if r == '.' {
 			partPointer = 0
-			if wholePointer == 4 {
-				return whole, errors.New("too more dot")
-			}
-			whole[wholePointer] = part
 			wholePointer++
 			continue
 		}
-		if partPointer == 3 {
-			return whole, errors.New("too large part")
+		if wholePointer == 4 {
+			return whole, 0
 		}
-		part[partPointer] = r
+		whole[wholePointer].part[partPointer] = r
 		partPointer++
+		whole[wholePointer].bit++
 	}
-	return whole, nil
+	return whole, 1
 }
 
-func isValidIP(ip string) bool {
-	whole, err := getIPPart(ip)
-	if err != nil {
+func IsZero(r rune) bool {
+	return r == '0'
+}
+
+func IPIsValid(ip string) bool {
+	if part, ok := getIPPart(ip); ok == 1 {
+		return ipIsValid(part)
+	}
+	return false
+}
+
+func ipIsValid(ipParts [4]*ipPart) bool {
+	if len(ipParts) < 4 {
 		return false
 	}
-	for i := 0; i < 4; i++ {
-		switch len(whole[i]) {
+	for _, part := range ipParts {
+		switch part.bit {
 		case 0:
 			return false
 		case 1:
-			continue
+			if !IsAllDigit(part.part) {
+				return false
+			}
 		case 2:
-			if whole[i][0] == '0' {
+			if !IsAllDigit(part.part) || IsZero(part.part[0]) {
 				return false
 			}
 		case 3:
-			if whole[i][0] == '0' {
+			if !IsAllDigit(part.part) || IsZero(part.part[0]) {
 				return false
 			}
-			if !lessThanFive(whole[i][1]) {
+			if part.part[0] != '1' && part.part[0] != '2' {
 				return false
 			}
-			if whole[i][1] == '5' {
-				if !lessThanFive(whole[i][2]) {
+			if part.part[0] == '2' {
+				if !lessThanFive(part.part[1]) {
 					return false
+				}
+				if part.part[1] == '5' {
+					if !lessThanFive(part.part[2]) {
+						return false
+					}
 				}
 			}
 		}
